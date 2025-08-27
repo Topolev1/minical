@@ -1,80 +1,169 @@
-:root {
-  --gap: 6px;
-  --cell-size: 38px;
-  --accent: #4caf50;
-  --text: #222;
-  --muted: #888;
-  --border: #ddd;
+// ----- данные и утилиты -----
+const MONTHS = [
+  "Январь","Февраль","Март","Апрель","Май","Июнь",
+  "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"
+];
+const WEEKDAYS = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+const YEAR = 2025;
+
+const viewport = document.getElementById("viewport");
+const monthLabel = document.getElementById("monthLabel");
+const navLeft = document.getElementById("navLeft");
+const navRight = document.getElementById("navRight");
+
+// выбранные даты храним как Set("YYYY-MM-DD")
+const selected = new Set();
+
+let currentMonth = new Date().getFullYear() === YEAR ? new Date().getMonth() : 0;
+
+// форматирование
+const pad = n => String(n).padStart(2,"0");
+const ymd = (y,m,d) => `${y}-${pad(m+1)}-${pad(d)}`;
+
+// неделя с понедельника
+function firstWeekdayIndex(year, month0){
+  const js = new Date(year, month0, 1).getDay(); // 0=Вс..6=Сб
+  return (js + 6) % 7; // 0=Пн..6=Вс
+}
+function daysInMonth(year, month0){
+  return new Date(year, month0+1, 0).getDate();
 }
 
-* { box-sizing: border-box; }
-body {
-  font-family: Arial, sans-serif;
-  margin: 16px;
-  color: var(--text);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+// ----- генерация одного месяца -----
+function buildMonthCard(year, month0){
+  const wrap = document.createElement("div");
+  wrap.className = "month-card";
+
+  // заголовок внутри карточки (дублируем низ, но это красиво)
+  const header = document.createElement("div");
+  header.className = "month-header";
+  const name = document.createElement("div");
+  name.className = "month-name";
+  name.textContent = `${MONTHS[month0]} ${year}`;
+  header.appendChild(name);
+  wrap.appendChild(header);
+
+  const grid = document.createElement("div");
+  grid.className = "calendar";
+
+  // имена дней недели
+  WEEKDAYS.forEach(w=>{
+    const el = document.createElement("div");
+    el.className = "weekday";
+    el.textContent = w;
+    grid.appendChild(el);
+  });
+
+  const startEmpty = firstWeekdayIndex(year, month0);
+  const totalDays = daysInMonth(year, month0);
+
+  // пустые ячейки
+  for (let i=0;i<startEmpty;i++){
+    const empty = document.createElement("div");
+    empty.className = "day empty";
+    grid.appendChild(empty);
+  }
+
+  // дни месяца
+  for (let day=1; day<=totalDays; day++){
+    const cell = document.createElement("div");
+    cell.className = "day";
+    cell.textContent = day;
+    const key = ymd(year, month0, day);
+    if (selected.has(key)) cell.classList.add("active");
+    cell.addEventListener("click", ()=>{
+      cell.classList.toggle("active");
+      if (cell.classList.contains("active")) selected.add(key);
+      else selected.delete(key);
+      // при желании: window.Telegram?.WebApp?.sendData(JSON.stringify([...selected]));
+    });
+    grid.appendChild(cell);
+  }
+
+  wrap.appendChild(grid);
+  return wrap;
 }
 
-h2 { margin: 8px 0 16px; }
+// ----- рендер с анимацией -----
+let isAnimating = false;
 
-#calendars {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(280px, 1fr));
-  gap: 16px;
-  width: 100%;
-  max-width: 1100px;
+function renderMonth(targetMonth, dir /* -1 влево, 1 вправо, 0 при первом рендере */){
+  if (isAnimating) return;
+
+  const oldSlide = viewport.querySelector(".slide");
+  const newSlide = document.createElement("div");
+  newSlide.className = "slide";
+  newSlide.appendChild(buildMonthCard(YEAR, targetMonth));
+
+  // подпись внизу
+  monthLabel.textContent = MONTHS[targetMonth];
+
+  // анимации вход/выход
+  if (!oldSlide){
+    newSlide.classList.add("slide-enter-right"); // первый показ
+    viewport.appendChild(newSlide);
+    return;
+  }
+
+  isAnimating = true;
+  if (dir > 0){
+    // двигаемся вправо -> новый заходит справа
+    newSlide.classList.add("slide-enter-right");
+    oldSlide.classList.add("slide-exit-left");
+  } else if (dir < 0){
+    newSlide.classList.add("slide-enter-left");
+    oldSlide.classList.add("slide-exit-right");
+  } else {
+    newSlide.classList.add("slide-enter-right");
+  }
+
+  viewport.appendChild(newSlide);
+
+  const onDone = ()=> {
+    oldSlide?.remove();
+    isAnimating = false;
+  };
+  // по завершении любой из анимаций очищаем старый
+  newSlide.addEventListener("animationend", onDone, { once:true });
 }
 
-.month {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px;
+// ----- навигация (стрелки/клавиатура/свайпы) -----
+function go(delta){
+  let next = currentMonth + delta;
+  if (next < 0) next = 11;
+  if (next > 11) next = 0;
+  renderMonth(next, delta);
+  currentMonth = next;
 }
 
-.month-title {
-  text-align: center;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
+navLeft.addEventListener("click", ()=> go(-1));
+navRight.addEventListener("click", ()=> go(1));
+window.addEventListener("keydown", (e)=>{
+  if (e.key === "ArrowLeft") go(-1);
+  if (e.key === "ArrowRight") go(1);
+});
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(7, var(--cell-size));
-  gap: var(--gap);
-  justify-content: center;
-}
+// свайпы (тач и мышь)
+let touchX = null, mouseDownX = null;
+const SWIPE = 50; // порог пикселей
 
-.weekday {
-  font-size: 12px;
-  color: var(--muted);
-  text-align: center;
-}
+viewport.addEventListener("touchstart", (e)=> touchX = e.touches[0].clientX, {passive:true});
+viewport.addEventListener("touchend", (e)=>{
+  if (touchX == null) return;
+  const dx = e.changedTouches[0].clientX - touchX;
+  if (Math.abs(dx) > SWIPE) go(dx < 0 ? 1 : -1);
+  touchX = null;
+}, {passive:true});
 
-.cell {
-  width: var(--cell-size);
-  height: var(--cell-size);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  user-select: none;
-  transition: transform .05s ease;
-}
+// для десктопа — перетаскивание мышью
+viewport.addEventListener("mousedown", (e)=> mouseDownX = e.clientX);
+window.addEventListener("mouseup", (e)=>{
+  if (mouseDownX == null) return;
+  const dx = e.clientX - mouseDownX;
+  if (Math.abs(dx) > SWIPE) go(dx < 0 ? 1 : -1);
+  mouseDownX = null;
+});
 
-.cell:hover { transform: translateY(-1px); }
-
-.cell.empty {
-  border-style: dashed;
-  border-color: #eee;
-  cursor: default;
-}
-
-.cell.active {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-  font-weight: 700;
-}
+// ----- старт -----
+document.querySelector(".year").textContent = YEAR;
+renderMonth(currentMonth, 0);

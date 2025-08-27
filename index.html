@@ -7,8 +7,21 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h2>Календарь 2025</h2>
-  <div id="calendars"></div>
+  <header class="topbar">
+    <div class="title">Календарь <span class="year">2025</span></div>
+  </header>
+
+  <main class="viewport" id="viewport">
+    <!-- сюда будет подставляться один месяц -->
+  </main>
+
+  <!-- навигация (тонкие стрелки, на всякий случай) -->
+  <button class="nav nav-left" id="navLeft" aria-label="Предыдущий месяц">‹</button>
+  <button class="nav nav-right" id="navRight" aria-label="Следующий месяц">›</button>
+
+  <footer class="bottombar">
+    <div id="monthLabel" class="month-label">Январь</div>
+  </footer>
 
   <script src="script.js"></script>
 </body>
