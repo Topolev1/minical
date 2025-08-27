@@ -2,27 +2,72 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Календарь 2025</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Календарь 2025–2026</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- Фон: волны -->
+  <div class="waves">
+    <div class="wave layer1"></div>
+    <div class="wave layer2"></div>
+    <div class="wave layer3"></div>
+  </div>
+
   <header class="topbar">
-    <div class="title">Календарь <span class="year">2025</span></div>
+    <button class="nav mini" id="navLeft" aria-label="Предыдущий">‹</button>
+    <div class="title"><span id="monthLabel">Сентябрь</span> <span class="year">2025</span></div>
+    <button class="nav mini" id="navRight" aria-label="Следующий">›</button>
   </header>
 
-  <main class="viewport" id="viewport">
-    <!-- сюда будет подставляться один месяц -->
-  </main>
-
-  <!-- навигация (тонкие стрелки, на всякий случай) -->
-  <button class="nav nav-left" id="navLeft" aria-label="Предыдущий месяц">‹</button>
-  <button class="nav nav-right" id="navRight" aria-label="Следующий месяц">›</button>
-
-  <footer class="bottombar">
-    <div id="monthLabel" class="month-label">Январь</div>
-  </footer>
+  <main class="viewport" id="viewport"></main>
 
   <script src="script.js"></script>
-</body>
+
+<script>
+(function stripNestEmojis() {
+  const EMOJI_RE = /[\u{1FA7A}\u{1F423}\u{1F425}\u{1F424}]/gu;
+  const roots = document.querySelectorAll('.calendar, [data-calendar], #calendar');
+  if (!roots.length) return;
+  const daySelectors = ['.day','.day-cell','[data-day]','[role="gridcell"]'];
+  roots.forEach(root => {
+    root.querySelectorAll(daySelectors.join(',')).forEach(cell => {
+      cell.childNodes.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE && EMOJI_RE.test(node.nodeValue)) {
+          node.nodeValue = node.nodeValue.replace(EMOJI_RE,'');
+        }
+      });
+      ['title','aria-label'].forEach(attr=>{
+        const v = cell.getAttribute(attr);
+        if (v && EMOJI_RE.test(v)) cell.setAttribute(attr, v.replace(EMOJI_RE,''));
+      });
+    });
+  });
+})();
+</script>
+
+<script>
+(function stripNestEmojis() {
+  // Удаляем только "гнездовые" эмодзи: 🪺 (U+1FA7A), 🐣 (U+1F423), 🐥 (U+1F425), 🐤 (U+1F424)
+  const EMOJI_RE = /[\u{1FA7A}\u{1F423}\u{1F425}\u{1F424}]/gu;
+  const roots = document.querySelectorAll('.calendar, [data-calendar], #calendar');
+  if (!roots.length) return;
+  const daySelectors = ['.day', '.day-cell', '[data-day]', '[role="gridcell"]'];
+  roots.forEach(root => {
+    root.querySelectorAll(daySelectors.join(',')).forEach(cell => {
+      // текстовые узлы
+      cell.childNodes.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE && EMOJI_RE.test(node.nodeValue)) {
+          node.nodeValue = node.nodeValue.replace(EMOJI_RE, '');
+        }
+      });
+      // атрибуты подсказок
+      ['title','aria-label'].forEach(attr => {
+        const v = cell.getAttribute(attr);
+        if (v && EMOJI_RE.test(v)) cell.setAttribute(attr, v.replace(EMOJI_RE, ''));
+      });
+    });
+  });
+})();
+</script></body>
 </html>

@@ -1,169 +1,95 @@
-// ----- данные и утилиты -----
-const MONTHS = [
-  "Январь","Февраль","Март","Апрель","Май","Июнь",
-  "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"
-];
-const WEEKDAYS = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
-const YEAR = 2025;
-
-const viewport = document.getElementById("viewport");
-const monthLabel = document.getElementById("monthLabel");
-const navLeft = document.getElementById("navLeft");
-const navRight = document.getElementById("navRight");
-
-// выбранные даты храним как Set("YYYY-MM-DD")
-const selected = new Set();
-
-let currentMonth = new Date().getFullYear() === YEAR ? new Date().getMonth() : 0;
-
-// форматирование
-const pad = n => String(n).padStart(2,"0");
-const ymd = (y,m,d) => `${y}-${pad(m+1)}-${pad(d)}`;
-
-// неделя с понедельника
-function firstWeekdayIndex(year, month0){
-  const js = new Date(year, month0, 1).getDay(); // 0=Вс..6=Сб
-  return (js + 6) % 7; // 0=Пн..6=Вс
-}
-function daysInMonth(year, month0){
-  return new Date(year, month0+1, 0).getDate();
+:root{
+  --text:#1f2937; --muted:#6b7280; --line:#d1d5db;
+  --panelA: rgba(255,255,255,.64); --panelB: rgba(255,255,255,.48);
+  --glass-border: rgba(30,44,80,0.14);
+  --cellTop:#ffffff; --cellBottom:#f6f8fe;
+  --radius:16px; --shadow:0 10px 26px rgba(0,0,0,.14);
 }
 
-// ----- генерация одного месяца -----
-function buildMonthCard(year, month0){
-  const wrap = document.createElement("div");
-  wrap.className = "month-card";
+*{box-sizing:border-box} html,body{height:100%}
+body{ margin:0; color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",Roboto,Arial,sans-serif; overflow:hidden; background:#e0f2ff; }
 
-  // заголовок внутри карточки (дублируем низ, но это красиво)
-  const header = document.createElement("div");
-  header.className = "month-header";
-  const name = document.createElement("div");
-  name.className = "month-name";
-  name.textContent = `${MONTHS[month0]} ${year}`;
-  header.appendChild(name);
-  wrap.appendChild(header);
+/* ==== Волновой фон ==== */
+.waves{ position:fixed; inset:0; z-index:-2; overflow:hidden; background:linear-gradient(to bottom,#dff6ff 0%,#b9e9ff 60%,#9ad5ff 100%); }
+.wave{
+  position:absolute; left:0; bottom:0; width:200%; height:120px;
+  background-repeat: repeat-x;
+  background-size: 50% 100%;
+  opacity:.5;
+  will-change: transform;
+}
+.layer1{ background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="120"><path d="M0 67 C 273 267 822 -93 1600 67 V120 H0 Z" fill="%23ffffff"/></svg>'); animation: wave1 12s linear infinite; opacity:.35;}
+.layer2{ background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="120"><path d="M0 77 C 273 277 822 -83 1600 77 V120 H0 Z" fill="%23ffffff"/></svg>'); animation: wave2 18s linear infinite; opacity:.55;}
+.layer3{ background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="120"><path d="M0 87 C 273 287 822 -73 1600 87 V120 H0 Z" fill="%23ffffff"/></svg>'); animation: wave3 24s linear infinite; opacity:.75;}
+@keyframes wave1{ 0%{transform:translateX(0);} 100%{transform:translateX(-50%);} }
+@keyframes wave2{ 0%{transform:translateX(0);} 100%{transform:translateX(-50%);} }
+@keyframes wave3{ 0%{transform:translateX(0);} 100%{transform:translateX(-50%);} }
 
-  const grid = document.createElement("div");
-  grid.className = "calendar";
+/* Верхняя панель */
+.topbar{
+  position:fixed; top:0; left:0; right:0; height:64px;
+  display:flex; align-items:center; justify-content:space-between; padding:0 10px;
+  background: linear-gradient(180deg,var(--panelA),var(--panelB));
+  border-bottom:1px solid var(--glass-border);
+  backdrop-filter: blur(8px) saturate(140%);
+  z-index:5;
+}
+.title{ display:flex; align-items:center; gap:8px; margin:0 auto; font-weight:800; letter-spacing:.2px; }
+.title #monthLabel{ font-size:18px; }
+.title .year{ font-size:13px; font-weight:700; padding:.15rem .5rem; border-radius:999px; background:#eef2ff; border:1px solid var(--glass-border); color:#374151; }
+.nav.mini{ width:38px; height:38px; border-radius:999px; border:1px solid var(--glass-border); background:linear-gradient(180deg,var(--panelA),var(--panelB)); color:#374151; font-size:22px; font-weight:700; display:grid; place-items:center; cursor:pointer; }
 
-  // имена дней недели
-  WEEKDAYS.forEach(w=>{
-    const el = document.createElement("div");
-    el.className = "weekday";
-    el.textContent = w;
-    grid.appendChild(el);
-  });
+/* Контент */
+.viewport{ position:fixed; top:64px; bottom:0; left:0; right:0; padding:10px; z-index:1; }
 
-  const startEmpty = firstWeekdayIndex(year, month0);
-  const totalDays = daysInMonth(year, month0);
+.month-card{
+  height:100%; width:100%;
+  background: linear-gradient(180deg, var(--panelA), var(--panelB));
+  border:1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding:10px;
+  display:grid;
+  grid-template-rows: auto 1fr;
+}
+.weekdays{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:6px; }
+.weekday{ text-align:center; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; }
 
-  // пустые ячейки
-  for (let i=0;i<startEmpty;i++){
-    const empty = document.createElement("div");
-    empty.className = "day empty";
-    grid.appendChild(empty);
-  }
+.grid{ height:100%; display:grid; grid-template-columns:repeat(7,1fr); grid-template-rows:repeat(6,1fr); gap:6px; }
 
-  // дни месяца
-  for (let day=1; day<=totalDays; day++){
-    const cell = document.createElement("div");
-    cell.className = "day";
-    cell.textContent = day;
-    const key = ymd(year, month0, day);
-    if (selected.has(key)) cell.classList.add("active");
-    cell.addEventListener("click", ()=>{
-      cell.classList.toggle("active");
-      if (cell.classList.contains("active")) selected.add(key);
-      else selected.delete(key);
-      // при желании: window.Telegram?.WebApp?.sendData(JSON.stringify([...selected]));
-    });
-    grid.appendChild(cell);
-  }
+.day{
+  position:relative; display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  border:1px solid var(--line); border-radius:12px; color:var(--text);
+  background: linear-gradient(180deg, var(--cellTop), var(--cellBottom));
+  user-select:none; cursor:pointer; transition: transform .06s, background .2s, border-color .2s, box-shadow .2s;
+  overflow:hidden;
+  touch-action: manipulation; /* убираем двойной-тап-зуум, чтобы двойное нажатие ловилось */
+  will-change: transform;
+}
+.day:hover{ transform: translateY(-1px); }
+.day.empty{ background:transparent; border-style: solid; border-color: var(--line); cursor:default; }
 
-  wrap.appendChild(grid);
-  return wrap;
+.num{ font-weight:800; font-size:16px; line-height:1; pointer-events:none; margin-top:8px; margin-bottom:4px; }
+.label-slot{ min-height:28px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:2px; }
+.badge{ font-size:10px; line-height:1; color:#374151; white-space:nowrap; }
+.icon{ font-size:12px; line-height:1; }
+
+/* Состояния */
+.day.state-green{
+  background: linear-gradient(180deg, #34d399, #22c55e);
+  border-color:#16a34a; box-shadow: 0 0 0 1px rgba(34,197,94,.25), inset 0 0 0 1px rgba(34,197,94,.12), 0 10px 20px rgba(34,197,94,.25);
+  color:#062b16;
+}
+.day.state-red{
+  background: linear-gradient(180deg, #f87171, #ef4444);
+  border-color:#dc2626; box-shadow: 0 0 0 1px rgba(239,68,68,.25), inset 0 0 0 1px rgba(239,68,68,.12), 0 10px 20px rgba(239,68,68,.25);
+  color:#300707;
 }
 
-// ----- рендер с анимацией -----
-let isAnimating = false;
+/* Визуальный отклик */
+.day.pulse{ animation: pulse .12s ease-out; }
+@keyframes pulse{ 0%{ transform:scale(1); } 100%{ transform:scale(0.98); } }
 
-function renderMonth(targetMonth, dir /* -1 влево, 1 вправо, 0 при первом рендере */){
-  if (isAnimating) return;
-
-  const oldSlide = viewport.querySelector(".slide");
-  const newSlide = document.createElement("div");
-  newSlide.className = "slide";
-  newSlide.appendChild(buildMonthCard(YEAR, targetMonth));
-
-  // подпись внизу
-  monthLabel.textContent = MONTHS[targetMonth];
-
-  // анимации вход/выход
-  if (!oldSlide){
-    newSlide.classList.add("slide-enter-right"); // первый показ
-    viewport.appendChild(newSlide);
-    return;
-  }
-
-  isAnimating = true;
-  if (dir > 0){
-    // двигаемся вправо -> новый заходит справа
-    newSlide.classList.add("slide-enter-right");
-    oldSlide.classList.add("slide-exit-left");
-  } else if (dir < 0){
-    newSlide.classList.add("slide-enter-left");
-    oldSlide.classList.add("slide-exit-right");
-  } else {
-    newSlide.classList.add("slide-enter-right");
-  }
-
-  viewport.appendChild(newSlide);
-
-  const onDone = ()=> {
-    oldSlide?.remove();
-    isAnimating = false;
-  };
-  // по завершении любой из анимаций очищаем старый
-  newSlide.addEventListener("animationend", onDone, { once:true });
-}
-
-// ----- навигация (стрелки/клавиатура/свайпы) -----
-function go(delta){
-  let next = currentMonth + delta;
-  if (next < 0) next = 11;
-  if (next > 11) next = 0;
-  renderMonth(next, delta);
-  currentMonth = next;
-}
-
-navLeft.addEventListener("click", ()=> go(-1));
-navRight.addEventListener("click", ()=> go(1));
-window.addEventListener("keydown", (e)=>{
-  if (e.key === "ArrowLeft") go(-1);
-  if (e.key === "ArrowRight") go(1);
-});
-
-// свайпы (тач и мышь)
-let touchX = null, mouseDownX = null;
-const SWIPE = 50; // порог пикселей
-
-viewport.addEventListener("touchstart", (e)=> touchX = e.touches[0].clientX, {passive:true});
-viewport.addEventListener("touchend", (e)=>{
-  if (touchX == null) return;
-  const dx = e.changedTouches[0].clientX - touchX;
-  if (Math.abs(dx) > SWIPE) go(dx < 0 ? 1 : -1);
-  touchX = null;
-}, {passive:true});
-
-// для десктопа — перетаскивание мышью
-viewport.addEventListener("mousedown", (e)=> mouseDownX = e.clientX);
-window.addEventListener("mouseup", (e)=>{
-  if (mouseDownX == null) return;
-  const dx = e.clientX - mouseDownX;
-  if (Math.abs(dx) > SWIPE) go(dx < 0 ? 1 : -1);
-  mouseDownX = null;
-});
-
-// ----- старт -----
-document.querySelector(".year").textContent = YEAR;
-renderMonth(currentMonth, 0);
+/* Конфетти */
+.confetti{ position:absolute; width:6px; height:6px; border-radius:2px; opacity:.98; animation: confetti 650ms ease-out forwards; pointer-events:none; }
+@keyframes confetti{ 0%{ transform: translate(0,0) rotate(0); opacity:1; } 100%{ transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity:0; } }
