@@ -36,14 +36,17 @@
   try { supabase = createClient(SUPABASE_URL.replace(/\/+$/,''), SUPABASE_ANON_KEY); }
   catch(e){ console.error('createClient error', e); setStatus('Ошибка инициализации Supabase', 'err'); }
 
-  const calId = 'shared-main'; // один общий календарь для всех устройств
+  // Общий id календаря (?id=...)
+  const params = new URLSearchParams(location.search);
+  let calId = params.get('id') || localStorage.getItem('CAL_ID');
+  if (!calId) { calId = crypto.getRandomValues(new Uint8Array(16)).reduce((s,b)=>s+('0'+b.toString(16)).slice(-2),''); localStorage.setItem('CAL_ID', calId); const u = new URL(location.href); u.searchParams.set('id', calId); history.replaceState(null, '', u.toString()); }
 
   // Ссылка для шаринга
   (function showShare(){
     const host = document.querySelector('#share');
     if (!host) return;
     const a = document.createElement('a');
-    a.href = `${location.origin}${location.pathname}`;
+    a.href = `${location.origin}${location.pathname}?id=${calId}`;
     a.textContent = 'Открыть этот календарь на другом устройстве';
     host.innerHTML=''; host.appendChild(a);
   })();
@@ -97,3 +100,18 @@
     else if (tries < 60) setTimeout(waitAndLoad, 100);
     else setStatus('Календарь не найден в DOM (нет .day)', 'err');
   })();
+
+
+// === Lightweight polling fallback (no Realtime required) ===
+let pollTimer = null;
+function startPolling(){
+  stopPolling();
+  pollTimer = setInterval(()=>{ loadFromSupabase(); }, 2500);
+}
+function stopPolling(){
+  if (pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+}
+document.addEventListener('visibilitychange', ()=>{
+  if (document.visibilityState === 'visible') loadFromSupabase();
+});
+startPolling();
