@@ -26,15 +26,22 @@ const ymd = (y,m,d) => `${y}-${pad(m+1)}-${pad(d)}`;
 const firstWeekdayIndex = (y,m) => (new Date(y,m,1).getDay() + 6) % 7;
 const daysInMonth = (y,m) => new Date(y, m+1, 0).getDate();
 
-// Саша/Аня каждые 2 дня с 2025-09-03
+// Саша/мама/Аня каждые 2 дня с 2025-09-03
 const START_LABEL_DATE = new Date(2025, 8, 3);
+const NAMES = ["Саша", "мама", "Аня"];
+
 function labelForDate(y,m,d){
   const current = new Date(y,m,d); current.setHours(0,0,0,0);
   const start = new Date(START_LABEL_DATE); start.setHours(0,0,0,0);
+  // Ограничения диапазона (оставим как было, если есть внешняя логика использует эти даты)
   if (current < new Date(2025,8,1) || current > new Date(2026,11,31)) return null;
+
   const diffDays = Math.floor((current - start)/(1000*60*60*24));
   if (diffDays < 0 || diffDays % 2 !== 0) return null;
-  return (Math.floor(diffDays/2) % 2 === 0) ? "Саша" : "Аня";
+
+  const NAMES = ["Саша", "мама", "Аня"]; // цикл из трёх имён
+  const index = Math.floor(diffDays / 2) % NAMES.length;
+  return NAMES[index];
 }
 
 // Гнездо 🪺 каждую неделю начиная с 2025-09-05
