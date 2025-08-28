@@ -19,6 +19,7 @@ document.querySelector(".year").textContent = MONTH_RANGE[0].y;
 
 let idx = 0;
 const state = new Map();
+window.state = state;
 
 const pad = n => String(n).padStart(2,"0");
 const ymd = (y,m,d) => `${y}-${pad(m+1)}-${pad(d)}`;
@@ -184,3 +185,9 @@ viewport.addEventListener("mousedown", e=> mouseX = e.clientX);
 window.addEventListener("mouseup", e=> { if (mouseX==null) return; const dx = e.clientX - mouseX; if (Math.abs(dx)>SWIPE) go(dx<0?1:-1); mouseX=null; });
 
 renderIndex(0);
+
+
+// === Expose to window for sync.js ===
+try { window.updateClass = window.updateClass || updateClass; } catch(e) {}
+try { window.ymd = window.ymd || ymd; } catch(e) {}
+try { window.MONTHS = window.MONTHS || MONTHS; } catch(e) {}
