@@ -64,7 +64,7 @@
         const st = ensureState(); st.clear();
         Object.entries(obj).forEach(([k,v])=> st.set(k, v));
         applyStateToVisible();
-        setStatus('Загружено ✔', 'ok');
+        setStatus('Загружено ✔ (ID: ' + calId + ')', 'ok');
       }
     } catch(e){
       console.error('loadFromSupabase exception', e);
@@ -82,7 +82,7 @@
       const payload = { id: calId, data: serializeState(), updated_at: new Date().toISOString() };
       const { error } = await supabase.from('calendars').upsert(payload);
       if (error){ console.error('Save error', error); setStatus(`Ошибка сохранения: ${error.code||''} ${error.message}`, 'err'); }
-      else setStatus('Сохранено ✔', 'ok');
+      else setStatus('Сохранено ✔ (ID: ' + calId + ')', 'ok');
     } catch(e){
       console.error('saveNow exception', e);
       setStatus('Сетевая ошибка при сохранении', 'err');
