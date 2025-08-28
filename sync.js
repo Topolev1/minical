@@ -36,7 +36,9 @@ function paintEl(el, mode){
   // Prefer your updateClass if present
   if (window.updateClass) { window.updateClass(el, mode); return; }
   el.classList.toggle('state-green', mode === 'green');
+  el.classList.toggle('state-red', mode === 'red');
   if (mode !== 'green') el.classList.remove('state-green');
+  if (mode !== 'red') el.classList.remove('state-red');
 }
 
 function applyStateToDOM(){
@@ -47,9 +49,11 @@ function applyStateToDOM(){
     if (!key) return;
     const mode = state.get(key) || 'none';
     // Only update if actual class differs -> avoid flicker
-    const isGreen = el.classList.contains('state-green') || el.classList.contains('state-1') || el.classList.contains('state-green');
+    const isGreen = el.classList.contains('state-green');
+    const isRed = el.classList.contains('state-red');
     const shouldBeGreen = (mode === 'green');
-    if (isGreen !== shouldBeGreen) paintEl(el, mode);
+    const shouldBeRed = (mode === 'red');
+    if (isGreen !== shouldBeGreen || isRed !== shouldBeRed) paintEl(el, mode);
   });
 }
 
@@ -82,7 +86,7 @@ function scheduleSave(){
 
 async function saveNow(){
   try {
-    const obj = Object.fromEntries([...state.entries()].filter(([k,v]) => v==='green'));
+    const obj = Object.fromEntries([...state.entries()].filter(([k,v]) => v==='green' || v==='red'));
     setStatus('Сохранение...');
     const { error } = await supabase.from('calendars').upsert({ id: calId, data: obj, updated_at: new Date().toISOString() });
     if (error) { console.error(error); setStatus('Ошибка сохранения: ' + (error.message||error.code), 'err'); return; }
@@ -94,6 +98,20 @@ async function saveNow(){
 }
 
 // Click handler: toggle only green <-> none, then save
+// Dblclick handler start
+document.addEventListener('dblclick', (e) => {
+  const el = e.target.closest('.day');
+  if (!el || el.classList.contains('empty')) return;
+  const key = ymdFromEl(el);
+  if (!key) return;
+  const cur = state.get(key) || 'none';
+  const next = (cur === 'red') ? 'none' : 'red';
+  state.set(key, next);
+  paintEl(el, next);
+  scheduleSave();
+}, true);
+// Dblclick handler end
+
 document.addEventListener('click', (e) => {
   const el = e.target.closest('.day');
   if (!el || el.classList.contains('empty')) return;
