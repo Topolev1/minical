@@ -37,16 +37,14 @@
   catch(e){ console.error('createClient error', e); setStatus('Ошибка инициализации Supabase', 'err'); }
 
   // Общий id календаря (?id=...)
-  const params = new URLSearchParams(location.search);
-  let calId = params.get('id') || localStorage.getItem('CAL_ID');
-  if (!calId) { calId = crypto.getRandomValues(new Uint8Array(16)).reduce((s,b)=>s+('0'+b.toString(16)).slice(-2),''); localStorage.setItem('CAL_ID', calId); const u = new URL(location.href); u.searchParams.set('id', calId); history.replaceState(null, '', u.toString()); }
+  const calId = 'shared-main'; // один общий календарь для всех устройств (без ?id в ссылке)
 
   // Ссылка для шаринга
   (function showShare(){
     const host = document.querySelector('#share');
     if (!host) return;
     const a = document.createElement('a');
-    a.href = `${location.origin}${location.pathname}?id=${calId}`;
+    a.href = `${location.origin}${location.pathname}`;
     a.textContent = 'Открыть этот календарь на другом устройстве';
     host.innerHTML=''; host.appendChild(a);
   })();
@@ -102,7 +100,7 @@
   })();
 
 
-// === Lightweight polling fallback (no Realtime required) ===
+// === Lightweight polling (shared calendar, no Realtime needed) ===
 let pollTimer = null;
 function startPolling(){
   stopPolling();
