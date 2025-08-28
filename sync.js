@@ -11,7 +11,58 @@
   function ensureState(){ if (!window.state) window.state = new Map(); return window.state; }
   function serializeState(){ const obj = {}; ensureState().forEach((v,k)=>{ if (v && v!=='none') obj[k] = v; }); return obj; }
 
-  function applyStateToVisible(){
+  
+// === Simple GREEN toggle + race guard ===
+let lastLocalChange = 0; // ts ms
+
+function getVisibleYearMonthDay(el){
+  const yearEl = document.querySelector('.year');
+  const monthEl = document.getElementById('monthLabel');
+  if (!yearEl || !monthEl) return null;
+  const y = parseInt(yearEl.textContent,10);
+  const m = (window.MONTHS||[]).indexOf(monthEl.textContent);
+  const numEl = el.querySelector('.num');
+  if (isNaN(y) || m<0 || !numEl) return null;
+  const d = parseInt(numEl.textContent,10);
+  const key = window.ymd ? window.ymd(y,m,d) : `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  return {y,m,d,key};
+}
+
+// Override clicks to only toggle green <-> none and stop other handlers
+function installGreenOnlyClicks(){
+  document.querySelectorAll('.day').forEach(el=>{
+    if (el.classList.contains('empty')) return;
+    el.addEventListener('click', (e)=>{
+      // prevent any existing handlers from cycling other colors
+      e.stopImmediatePropagation && e.stopImmediatePropagation();
+      e.preventDefault && e.preventDefault();
+      const info = getVisibleYearMonthDay(el);
+      if (!info) return;
+      const st = ensureState();
+      const current = st.get(info.key);
+      const next = current === 'green' ? 'none' : 'green';
+      st.set(info.key, next);
+      if (window.updateClass) window.updateClass(el, next);
+      else { el.classList.toggle('state-green', next==='green'); el.classList.remove('state-red'); }
+      lastLocalChange = Date.now();
+      scheduleSave();
+    }, true); // capture to run before other handlers
+  });
+}
+
+// When applying state from remote, avoid overriding very fresh local clicks
+function applyStateObject(obj){
+  const now = Date.now();
+  if (now - lastLocalChange < 1200) {
+    // skip applying to avoid flicker; next poll will re-apply
+    return;
+  }
+  const st = ensureState(); st.clear();
+  Object.entries(obj).forEach(([k,v])=> st.set(k, v));
+  applyStateToVisible();
+}
+
+function applyStateToVisible(){
     try {
       const yearEl = document.querySelector('.year');
       const monthEl = document.getElementById('monthLabel');
@@ -60,11 +111,8 @@
         if (up.error){ console.warn('Create row error', up.error); setStatus(`Ошибка создания строки: ${up.error.message}`, 'err'); return; }
         setStatus('Создана новая запись календаря', 'ok');
       } else {
-        const obj = res.data?.data || {};
-        const st = ensureState(); st.clear();
-        Object.entries(obj).forEach(([k,v])=> st.set(k, v));
-        applyStateToVisible();
-        setStatus('Загружено ✔ (ID: ' + calId + ')', 'ok');
+        const obj = res.data?.data || {}; applyStateObject(obj);
+        installGreenOnlyClicks(); setStatus('Загружено ✔ (ID: ' + calId + ')', 'ok');
       }
     } catch(e){
       console.error('loadFromSupabase exception', e);
@@ -95,7 +143,8 @@
   (function waitAndLoad(){
     tries++;
     if (document.querySelector('.day')) loadFromSupabase();
-    else if (tries < 60) setTimeout(waitAndLoad, 100);
+    installGreenOnlyClicks();
+else if (tries < 60) setTimeout(waitAndLoad, 100);
     else setStatus('Календарь не найден в DOM (нет .day)', 'err');
   })();
 
