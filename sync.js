@@ -33,8 +33,14 @@ function ymdFromEl(el){
 }
 
 function paintEl(el, mode){
-  // Prefer your updateClass if present
-  if (window.updateClass) { window.updateClass(el, mode); return; }
+  // Robust paint: support both original classes and new ones, and clear others
+  const wantGreen = (mode === 'green');
+  const wantRed = (mode === 'red');
+  // Clear all known classes first
+  el.classList.remove('state-green','state-red','state-1','state-2');
+  if (wantGreen) { el.classList.add('state-green','state-1'); }
+  else if (wantRed) { el.classList.add('state-red','state-2'); }
+}
   el.classList.toggle('state-green', mode === 'green');
   el.classList.toggle('state-red', mode === 'red');
   if (mode !== 'green') el.classList.remove('state-green');
@@ -48,13 +54,9 @@ function applyStateToDOM(){
     const key = ymdFromEl(el);
     if (!key) return;
     const mode = state.get(key) || 'none';
-    // Only update if actual class differs -> avoid flicker
-    const isGreen = el.classList.contains('state-green');
-    const isRed = el.classList.contains('state-red');
-    const shouldBeGreen = (mode === 'green');
-    const shouldBeRed = (mode === 'red');
-    if (isGreen !== shouldBeGreen || isRed !== shouldBeRed) paintEl(el, mode);
+    paintEl(el, mode);
   });
+});
 }
 
 async function load(){
@@ -111,6 +113,25 @@ document.addEventListener('dblclick', (e) => {
   scheduleSave();
 }, true);
 // Dblclick handler end
+
+// Long-press (500ms) to toggle red on touch devices
+let lpTimer = null;
+document.addEventListener('touchstart', (e) => {
+  const el = e.target.closest('.day');
+  if (!el || el.classList.contains('empty')) return;
+  const startTarget = el;
+  lpTimer = setTimeout(() => {
+    const key = ymdFromEl(startTarget); if (!key) return;
+    const cur = state.get(key) || 'none';
+    const next = (cur === 'red') ? 'none' : 'red';
+    state.set(key, next);
+    paintEl(startTarget, next);
+    scheduleSave();
+  }, 500);
+}, {passive:true});
+document.addEventListener('touchend', () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } }, {passive:true});
+document.addEventListener('touchmove', () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } }, {passive:true});
+
 
 document.addEventListener('click', (e) => {
   const el = e.target.closest('.day');
