@@ -23,9 +23,6 @@ window.state = state;
 
 const pad = n => String(n).padStart(2,"0");
 const ymd = (y,m,d) => `${y}-${pad(m+1)}-${pad(d)}`;
-// Today key for yellow highlight
-const __now = new Date();
-const TODAY_KEY = ymd(__now.getFullYear(), __now.getMonth(), __now.getDate());
 const firstWeekdayIndex = (y,m) => (new Date(y,m,1).getDay() + 6) % 7;
 const daysInMonth = (y,m) => new Date(y, m+1, 0).getDate();
 
@@ -131,7 +128,6 @@ function buildMonth(y, m){
     cell.appendChild(num); cell.appendChild(slot);
 
     const key = ymd(y, m, d);
-    if (key===TODAY_KEY) { cell.dataset.today = '1'; }
     updateClass(cell, state.get(key)||'none');
 
     // === Логика нажатий (как в v12) ===
@@ -142,17 +138,10 @@ function buildMonth(y, m){
       const cur = state.get(key) || 'none';
 
       if (now - lastTap < TAP_GAP){
-        // двойной тап
+        // двойной тап: красный + красные конфетти
         if (timer){ clearTimeout(timer); timer = null; }
-        if (cell.dataset.today==='1'){
-          // сегодня: переключение красный <-> жёлтый
-          if (cur === 'red'){ state.set(key,'none'); updateClass(cell,'none'); }
-          else { state.set(key,'red'); updateClass(cell,'red'); burst(cell, REDS); }
-        } else {
-          // остальные дни — как раньше: просто красный
-          state.set(key,'red'); updateClass(cell,'red'); burst(cell, REDS);
-        }
-        feedback(cell);
+        state.set(key,'red'); updateClass(cell,'red');
+        burst(cell, REDS); feedback(cell);
         lastTap = 0;
       } else {
         lastTap = now;
@@ -186,8 +175,7 @@ function buildMonth(y, m){
 }
 
 function updateClass(el, mode){
-  el.classList.remove('state-green','state-red','state-yellow');
-  if (el.dataset.today==='1' && (mode==='none' || !mode)) el.classList.add('state-yellow');
+  el.classList.remove('state-green','state-red');
   if (mode==='green') el.classList.add('state-green');
   if (mode==='red') el.classList.add('state-red');
 }
