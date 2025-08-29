@@ -1,7 +1,7 @@
 // ==== Календарь ====
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
 const WEEKDAYS = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
-const START_YEAR = 2025, START_MONTH = 8; // Сентябрь
+const START_YEAR = 2025, START_MONTH = 7; // Август
 const END_YEAR = 2026, END_MONTH = 11;    // Декабрь
 
 const MONTH_RANGE = [];
@@ -27,10 +27,21 @@ const firstWeekdayIndex = (y,m) => (new Date(y,m,1).getDay() + 6) % 7;
 const daysInMonth = (y,m) => new Date(y, m+1, 0).getDate();
 
 // Саша/мама/Аня каждые 2 дня с 2025-09-03
-const START_LABEL_DATE = new Date(2025, 8, 3);
-const NAMES = ["Саша", "мама", "Аня"];
+const START_LABEL_DATE = new Date(2025, 8, 3); // базовая точка для обычного режима
+const NAMES = ["Саша", "Мама", "Аня"];
 
 function labelForDate(y,m,d){
+  // Спец-правила запуска последовательности по требованию:
+  // 29 августа 2025 — Саша, 31 августа 2025 — Мама, 1 сентября 2025 — Аня,
+  // а дальше — обычный режим каждые 2 дня от 3 сентября 2025.
+  const special = new Map([
+    [Date.UTC(2025,7,29), "Саша"],
+    [Date.UTC(2025,7,31), "Мама"],
+    [Date.UTC(2025,8,1),  "Аня"],
+  ]);
+  const utcKey = Date.UTC(y,m,d);
+  if (special.has(utcKey)) return special.get(utcKey);
+
   const current = new Date(y,m,d); current.setHours(0,0,0,0);
   const start = new Date(START_LABEL_DATE); start.setHours(0,0,0,0);
   // Ограничения диапазона (оставим как было, если есть внешняя логика использует эти даты)
@@ -39,7 +50,7 @@ function labelForDate(y,m,d){
   const diffDays = Math.floor((current - start)/(1000*60*60*24));
   if (diffDays < 0 || diffDays % 2 !== 0) return null;
 
-  const NAMES = ["Саша", "мама", "Аня"]; // цикл из трёх имён
+  const NAMES = ["Саша", "Мама", "Аня"]; // цикл из трёх имён
   const index = Math.floor(diffDays / 2) % NAMES.length;
   return NAMES[index];
 }
@@ -191,7 +202,19 @@ viewport.addEventListener("touchend", e=> { if (touchX==null) return; const dx =
 viewport.addEventListener("mousedown", e=> mouseX = e.clientX);
 window.addEventListener("mouseup", e=> { if (mouseX==null) return; const dx = e.clientX - mouseX; if (Math.abs(dx)>SWIPE) go(dx<0?1:-1); mouseX=null; });
 
-renderIndex(0);
+
+// Открываем текущий месяц автоматически, если он в диапазоне.
+// Если вне диапазона — показываем первый месяц.
+(function(){
+  const today = new Date();
+  const ty = today.getFullYear();
+  const tm = today.getMonth();
+  let found = 0;
+  for (let i=0;i<MONTH_RANGE.length;i++){
+    if (MONTH_RANGE[i].y===ty && MONTH_RANGE[i].m===tm){ found = i; break; }
+  }
+  renderIndex(found);
+})();
 
 
 // === Expose to window for sync.js ===
