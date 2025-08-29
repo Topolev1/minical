@@ -133,55 +133,50 @@ function buildMonth(y, m){
     if (isToday && !state.has(key)) state.set(key,'today');
     updateClass(cell, state.get(key)||'none');
 
-    // === Логика нажатий (как в v12) ===
+    // === Логика нажатий (пересборка) ===
     let lastTap = 0, timer = null;
-    const TAP_GAP = 280; // мс
+    const TAP_GAP = 280; // мс для распознавания двойного тапа
+    
+    function setState(mode){
+      state.set(key, mode);
+      updateClass(cell, mode);
+    }
+    function currentMode(){
+      return state.get(key) || (isToday ? 'today' : 'none');
+    }
+    
     cell.addEventListener("click", (e)=>{
       const now = Date.now();
-      const cur = state.get(key) || 'none';
-
+      const cur = currentMode();
+      
+      // Обработка двойного тапа
       if (now - lastTap < TAP_GAP){
-        // двойной тап: красный + красные конфетти
         if (timer){ clearTimeout(timer); timer = null; }
-        state.set(key,'red'); updateClass(cell,'red');
-        burst(cell, REDS); feedback(cell);
+        // Переключение красного
+        if (cur === 'red'){
+          setState(isToday ? 'today' : 'none');
+        } else {
+          setState('red');
+          try { burst(cell, REDS); feedback(cell); } catch(_) {}
+        }
         lastTap = 0;
-      } else {
-        lastTap = now;
-        // отложенная обработка одиночного тапа
-        timer = setTimeout(()=>{
-          if (isToday){
-              if (cur === 'today'){ state.set(key,'green'); updateClass(cell,'green'); burst(cell, MULTI); }
-              else if (cur === 'green'){ state.set(key,'today'); updateClass(cell,'today'); }
-              else { state.set(key,'green'); updateClass(cell,'green'); burst(cell, MULTI); }
-            } else {
-              if (cur === 'none'){ state.set(key,'green'); updateClass(cell,'green'); burst(cell, MULTI); }
-              else { state.set(key,'none'); updateClass(cell,'none'); }
-            }
-          else { state.set(key,'none'); updateClass(cell,'none'); }
-          feedback(cell);
-          timer = null;
-        }, TAP_GAP + 20);
+        return;
       }
-    }, {passive:true});
-    // На всякий случай — поддержка pointerdown (лучше ловит двойные тапы на iOS)
-    cell.addEventListener("pointerdown", (e)=>{
-      if (e.pointerType !== 'touch') return;
-      e.preventDefault();
+      
+      // Ожидаем: возможно будет второй тап
+      lastTap = now;
+      timer = setTimeout(()=>{
+        const cur2 = currentMode();
+        // Одиночный тап: зелёный <-> (желтый/белый)
+        if (cur2 === 'green'){
+          setState(isToday ? 'today' : 'none');
+        } else {
+          setState('green');
+          try { burst(cell, MULTI); feedback(cell); } catch(_) {}
+        }
+      }, TAP_GAP);
     });
-
-    grid.appendChild(cell);
-  }
-
-  const cellsCount = startEmpty + total;
-  const rows = Math.ceil(cellsCount / 7);
-  const need = (6 - rows) * 7;
-  for (let k=0; k<need; k++){
-    const e = document.createElement("div"); e.className = "day empty"; grid.appendChild(e);
-  }
-
-  card.appendChild(grid);
-  return card;
+return card;
 }
 
 function updateClass(el, mode){
