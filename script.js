@@ -135,52 +135,32 @@ function buildMonth(y, m){
 
     // === Логика нажатий (пересборка) ===
     let lastTap = 0, timer = null;
-    const TAP_GAP = 280; // мс для распознавания двойного тапа
-    
-    function setState(mode){
-      state.set(key, mode);
-      updateClass(cell, mode);
-    }
-    function currentMode(){
-      return state.get(key) || (isToday ? 'today' : 'none');
-    }
-    
+    const TAP_GAP = 280;
+    function setState(mode){ state.set(key, mode); updateClass(cell, mode); }
+    function cur(){ return state.get(key) || (isToday ? 'today' : 'none'); }
     cell.addEventListener("click", (e)=>{
       const now = Date.now();
-      const cur = currentMode();
-      
-      // Обработка двойного тапа
+      const prev = cur();
       if (now - lastTap < TAP_GAP){
         if (timer){ clearTimeout(timer); timer = null; }
-        // Переключение красного
-        if (cur === 'red'){
-          setState(isToday ? 'today' : 'none');
-        } else {
-          setState('red');
-          try { burst(cell, REDS); feedback(cell); } catch(_) {}
-        }
+        // двойной тап: красный <-> (жёлтый/белый)
+        if (prev === 'red') setState(isToday ? 'today' : 'none');
+        else { setState('red'); try{ burst(cell, REDS); feedback(cell);}catch(_){} }
         lastTap = 0;
         return;
       }
-      
-      // Ожидаем: возможно будет второй тап
       lastTap = now;
       timer = setTimeout(()=>{
-        const cur2 = currentMode();
-        // Одиночный тап: зелёный <-> (желтый/белый)
-        if (cur2 === 'green'){
-          setState(isToday ? 'today' : 'none');
-        } else {
-          setState('green');
-          try { burst(cell, MULTI); feedback(cell); } catch(_) {}
-        }
+        const c = cur();
+        if (c === 'green') setState(isToday ? 'today' : 'none');
+        else { setState('green'); try{ burst(cell, MULTI); feedback(cell);}catch(_){} }
       }, TAP_GAP);
     });
 return card;
 }
 
 function updateClass(el, mode){
-  el.classList.remove('state-today');
+  el.classList.remove('state-today'); 
   if (mode==='today') el.classList.add('state-today');
   el.classList.remove('state-green','state-red');
   if (mode==='green') el.classList.add('state-green');
