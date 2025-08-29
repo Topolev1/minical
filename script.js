@@ -20,13 +20,12 @@ document.querySelector(".year").textContent = MONTH_RANGE[0].y;
 let idx = 0;
 const state = new Map();
 window.state = state;
-// Today key for yellow highlight
-const __now = new Date();
-const TODAY_KEY = ymd(__now.getFullYear(), __now.getMonth(), __now.getDate());
-
 
 const pad = n => String(n).padStart(2,"0");
 const ymd = (y,m,d) => `${y}-${pad(m+1)}-${pad(d)}`;
+// Today key for yellow highlight
+const __now = new Date();
+const TODAY_KEY = ymd(__now.getFullYear(), __now.getMonth(), __now.getDate());
 const firstWeekdayIndex = (y,m) => (new Date(y,m,1).getDay() + 6) % 7;
 const daysInMonth = (y,m) => new Date(y, m+1, 0).getDate();
 
