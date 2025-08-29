@@ -127,7 +127,10 @@ function buildMonth(y, m){
     if (nestForDate(y,m,d)){ const nest = document.createElement("span"); nest.className="icon"; nest.textContent = "🪺"; slot.appendChild(nest); }
     cell.appendChild(num); cell.appendChild(slot);
 
+    const today = new Date(); today.setHours(0,0,0,0);
+    const isToday = (y===today.getFullYear() && m===today.getMonth() && d===today.getDate());
     const key = ymd(y, m, d);
+    if (isToday && !state.has(key)) state.set(key,'today');
     updateClass(cell, state.get(key)||'none');
 
     // === Логика нажатий (как в v12) ===
@@ -147,7 +150,14 @@ function buildMonth(y, m){
         lastTap = now;
         // отложенная обработка одиночного тапа
         timer = setTimeout(()=>{
-          if (cur === 'none'){ state.set(key,'green'); updateClass(cell,'green'); burst(cell, MULTI); }
+          if (isToday){
+              if (cur === 'today'){ state.set(key,'green'); updateClass(cell,'green'); burst(cell, MULTI); }
+              else if (cur === 'green'){ state.set(key,'today'); updateClass(cell,'today'); }
+              else { state.set(key,'green'); updateClass(cell,'green'); burst(cell, MULTI); }
+            } else {
+              if (cur === 'none'){ state.set(key,'green'); updateClass(cell,'green'); burst(cell, MULTI); }
+              else { state.set(key,'none'); updateClass(cell,'none'); }
+            }
           else { state.set(key,'none'); updateClass(cell,'none'); }
           feedback(cell);
           timer = null;
@@ -175,6 +185,8 @@ function buildMonth(y, m){
 }
 
 function updateClass(el, mode){
+  el.classList.remove('state-today');
+  if (mode==='today') el.classList.add('state-today');
   el.classList.remove('state-green','state-red');
   if (mode==='green') el.classList.add('state-green');
   if (mode==='red') el.classList.add('state-red');
