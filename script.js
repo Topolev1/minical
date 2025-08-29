@@ -23,6 +23,7 @@ window.state = state;
 
 const pad = n => String(n).padStart(2,"0");
 const ymd = (y,m,d) => `${y}-${pad(m+1)}-${pad(d)}`;
+const isTodayCell = (y,m,d) => { const t = new Date(); return t.getFullYear()===y && t.getMonth()===m && t.getDate()===d; };
 const firstWeekdayIndex = (y,m) => (new Date(y,m,1).getDay() + 6) % 7;
 const daysInMonth = (y,m) => new Date(y, m+1, 0).getDate();
 
@@ -127,44 +128,93 @@ function buildMonth(y, m){
     if (nestForDate(y,m,d)){ const nest = document.createElement("span"); nest.className="icon"; nest.textContent = "🪺"; slot.appendChild(nest); }
     cell.appendChild(num); cell.appendChild(slot);
 
-    const today = new Date(); today.setHours(0,0,0,0);
-    const isToday = (y===today.getFullYear() && m===today.getMonth() && d===today.getDate());
     const key = ymd(y, m, d);
-    if (isToday && !state.has(key)) state.set(key,'today');
+    cell.dataset.today = isTodayCell(y,m,d) ? "1" : "0";
     updateClass(cell, state.get(key)||'none');
 
-    // === Логика нажатий (пересборка) ===
+    
+    // === Логика нажатий (с поддержкой особого режима для сегодняшней даты) ===
     let lastTap = 0, timer = null;
-    const TAP_GAP = 280;
-    function setState(mode){ state.set(key, mode); updateClass(cell, mode); }
-    function cur(){ return state.get(key) || (isToday ? 'today' : 'none'); }
+    const TAP_GAP = 280; // мс
     cell.addEventListener("click", (e)=>{
       const now = Date.now();
-      const prev = cur();
+      const cur = state.get(key) || 'none';
+      const isToday = (cell.dataset.today === '1');
+
       if (now - lastTap < TAP_GAP){
+        // двойной тап: переключаем красный <-> none
         if (timer){ clearTimeout(timer); timer = null; }
-        // двойной тап: красный <-> (жёлтый/белый)
-        if (prev === 'red') setState(isToday ? 'today' : 'none');
-        else { setState('red'); try{ burst(cell, REDS); feedback(cell);}catch(_){} }
+        const next = (cur === 'red') ? 'none' : 'red';
+        state.set(key, next); updateClass(cell, next);
+        if (next==='red'){ burst(cell, REDS); } else { feedback(cell); }
         lastTap = 0;
         return;
       }
+
       lastTap = now;
       timer = setTimeout(()=>{
-        const c = cur();
-        if (c === 'green') setState(isToday ? 'today' : 'none');
-        else { setState('green'); try{ burst(cell, MULTI); feedback(cell);}catch(_){} }
-      }, TAP_GAP);
+        const cur2 = state.get(key) || 'none';
+        let next;
+        if (isToday){
+          // Сегодня: одиночный тап зелёный <-> none (none визуально = жёлтый)
+          if (cur2 === 'green'){ next = 'none'; }
+          else if (cur2 === 'red'){ next = 'none'; }
+          else { next = 'green'; }
+        } else {
+          // Обычные дни: одиночный тап зелёный <-> none
+          next = (cur2 === 'green') ? 'none' : 'green';
+        }
+        state.set(key, next); updateClass(cell, next);
+        if (next==='green'){ burst(cell, GREENS); } else { feedback(cell); }
+      }, TAP_GAP + 10);
     });
-return card;
+      const cur = state.get(key) || 'none';
+
+      if (now - lastTap < TAP_GAP){
+        // двойной тап: красный + красные конфетти
+        if (timer){ clearTimeout(timer); timer = null; }
+        state.set(key,'red'); updateClass(cell,'red');
+        burst(cell, REDS); feedback(cell);
+        lastTap = 0;
+      } else {
+        lastTap = now;
+        // отложенная обработка одиночного тапа
+        timer = setTimeout(()=>{
+          if (cur === 'none'){ state.set(key,'green'); updateClass(cell,'green'); burst(cell, MULTI); }
+          else { state.set(key,'none'); updateClass(cell,'none'); }
+          feedback(cell);
+          timer = null;
+        }, TAP_GAP + 20);
+      }
+    }, {passive:true});
+    // На всякий случай — поддержка pointerdown (лучше ловит двойные тапы на iOS)
+    cell.addEventListener("pointerdown", (e)=>{
+      if (e.pointerType !== 'touch') return;
+      e.preventDefault();
+    });
+
+    grid.appendChild(cell);
+  }
+
+  const cellsCount = startEmpty + total;
+  const rows = Math.ceil(cellsCount / 7);
+  const need = (6 - rows) * 7;
+  for (let k=0; k<need; k++){
+    const e = document.createElement("div"); e.className = "day empty"; grid.appendChild(e);
+  }
+
+  card.appendChild(grid);
+  return card;
 }
 
 function updateClass(el, mode){
-  el.classList.remove('state-today'); 
-  if (mode==='today') el.classList.add('state-today');
-  el.classList.remove('state-green','state-red');
+  el.classList.remove('state-green','state-red','state-yellow');
   if (mode==='green') el.classList.add('state-green');
   if (mode==='red') el.classList.add('state-red');
+  // If today-cell and mode is none -> show yellow visual
+  if ((mode==='none' || !mode) && el && el.dataset && el.dataset.today === '1'){
+    el.classList.add('state-yellow');
+  }
 }
 
 function renderIndex(newIdx){
